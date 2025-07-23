@@ -1,38 +1,43 @@
-name: Generate RSS Feed
+name: Update RSS Feeds
 
 on:
   schedule:
-    # every hour at minute 0 (UTC)
-    - cron: '0 * * * *'
+    # every 10 minutes
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 jobs:
-  build:
+  update-feeds:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repo
-        uses: actions/checkout@v3
-        with:
-          persist-credentials: true
+      # 1. Check out the repo
+      - uses: actions/checkout@v3
 
+      # 2. Set up Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
+          cache: 'pip'
 
+      # 3. Install dependencies
       - name: Install dependencies
         run: |
-          pip install requests beautifulsoup4
+          pip install --upgrade pip
+          pip install requests beautifulsoup4 feedgen dateparser
 
-      - name: Run feed generator
-        run: |
-          python scripts/generate_feed.py
+      # 4. Run your feed-update script
+      - name: Generate RSS feeds
+        run: python update_feeds.py
 
-      - name: Commit & push updated feed
+      # 5. Commit and push updated XMLs
+      - name: Commit feeds
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add feeds/forbes_articles.xml
-          git diff --quiet || git commit -m "Update Forbes RSS feed"
-          git push
+          git add feeds/*.xml
+          git diff --staged --quiet || git commit -m "chore: update RSS feeds"
+      - name: Push changes
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
